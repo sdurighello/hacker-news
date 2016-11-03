@@ -8,10 +8,16 @@
  * Controller of the hackerNewsApp
  */
 angular.module('hackerNewsApp')
-  .controller('AboutCtrl', function ($scope) {
+  .controller('AboutCtrl', ['$scope', '_', function ($scope, _) {
+
     $scope.awesomeThings = [
       'HTML5 Boilerplate',
       'AngularJS',
       'Karma'
     ];
-  });
+
+
+
+
+
+  }]);
