@@ -10,6 +10,8 @@
 angular.module('hackerNewsApp')
   .controller('AboutCtrl', ['$scope', '$http', '_', function ($scope, $http, _) {
 
+  	$scope.isResolving = false;
+
 		// Top 10 most occurring words in the last 600 stories
 
 		// 1. get the https://hacker-news.firebaseio.com/v0/maxitem
@@ -49,12 +51,15 @@ angular.module('hackerNewsApp')
 
 		// Test API, to be deleted
     var getTopStories = function () {
+    	$scope.isResolving = true;
       $http.get('https://hacker-news.firebaseio.com/v0/topstories.json').then(function(res){
 				console.log(res.data);
         $scope.results = res.data;
+				$scope.isResolving = false;
       }, function(err){
         console.log(err);
         $scope.error = err;
+				$scope.isResolving = false;
       });
     };
 

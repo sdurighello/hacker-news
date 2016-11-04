@@ -16,12 +16,13 @@
 			<div class="col-sm-6">
 				<select title="selectBox" class="form-control"
 				        data-ng-options="selection.name as selection.description for selection in querySelections"
+				        data-ng-disabled="isResolving"
 				        data-ng-model="selectedQuery">
 					<option value=''> --Select a query and hit refresh</option>
 				</select>
 			</div>
 			<div class="col-sm-4">
-				<button type="button" class="btn btn-success" data-ng-click="selectQuery(selectedQuery)">
+				<button type="button" class="btn btn-success" data-ng-disabled="isResolving" data-ng-click="selectQuery(selectedQuery)">
 					Refresh query
 				</button>
 			</div>
