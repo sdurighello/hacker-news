@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="styles/main.css">
     <!-- endbuild -->
   </head>
-  <body ng-app="hackerNewsApp">
+  <body data-ng-app="hackerNewsApp">
     <!--[if lt IE 7]>
       <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
     <![endif]-->
@@ -24,13 +24,15 @@
     <div class="container">
       <div class="header">
         <ul class="nav nav-pills pull-right">
-          <li><a ng-href="#/">Home</a></li>
-          <li><a ng-href="#/about">Lists</a></li>
+          <li><a data-ng-href="#/">Home</a></li>
+          <li><a data-ng-href="#/about">Lists</a></li>
         </ul>
         <h3 class="text-muted">hackerNews</h3>
       </div>
 
-      <div ng-view=""></div>
+      <div data-ng-view>
+
+      </div>
 
 
     </div>
