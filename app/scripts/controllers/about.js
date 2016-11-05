@@ -8,23 +8,19 @@
  * Controller of the hackerNewsApp
  */
 angular.module('hackerNewsApp')
-  .controller('AboutCtrl', ['$scope', '$http', '_', function ($scope, $http, _) {
+  .controller('AboutCtrl', ['$scope', '$http', '$q', '_', function ($scope, $http, $q, _) {
 
   	$scope.isResolving = false;
 
-		// Top 10 most occurring words in the last 600 stories
+		// --- Utilities ---
 
-		// 1. get the https://hacker-news.firebaseio.com/v0/maxitem
-		// 2. Loop from max to max-600
-					// In each loop count words and accumulate them in a state
-
-		var wordCounts = { };
-
-		var countWords = function (text) {
+		var getCountWords = function (text) {
+			var wordCounts = { };
 			var words = text.split(/\b/);
 			for(var i = 0; i < words.length; i++){
 				wordCounts["_" + words[i]] = (wordCounts["_" + words[i]] || 0) + 1;
 			}
+			return wordCounts
 		};
 
 		var getOrderedListOfWords = function (wordCountsObj) {
@@ -35,33 +31,72 @@ angular.module('hackerNewsApp')
 			return orderedWords.slice(1, 11);
 		};
 
-		console.log(getOrderedListOfWords({'one':1, 'ten':10, 'two':2}));
+		// --- ASSIGNMENT 1: Top 10 most occurring words in the last 600 stories ---
 
-		// Test with pyramid of doom. Will move into $q.
-		var wordsStories = function () {
+		// 1. get the https://hacker-news.firebaseio.com/v0/maxitem
+		// 2. Loop from max to max-600
+					// In each loop count words and accumulate them in a state
+
+		var createRequestBundle = function(maxItemId){
+			var requestBundle = [];
+			for(var i = maxItemId; i >= maxItemId - 600; i--){
+				requestBundle.push(
+					$http.get('https://hacker-news.firebaseio.com/v0/item/'+ i +'.json')
+				);
+			}
+			return requestBundle;
+		};
+
+		var getMaxItem = function () {
+			$scope.isResolving = true;
 			$http.get('https://hacker-news.firebaseio.com/v0/maxitem.json').then(function(res){
-				console.log(parseInt(res.data));
+				var maxItemId = parseInt(res.data);
+				var requestBundle = createRequestBundle(maxItemId);
+				getLastStoriesWordCount(requestBundle);
 			}, function(err){
 				console.log(err);
 				$scope.error = err;
 			});
 		};
 
-		wordsStories();
+		var getLastStoriesWordCount = function(requestBundle){
+			$q.all(requestBundle).then(function(res){
+				var concatText = '';
+				_.forEach(res, function(r){
+					if(r.data.text){
+						concatText = concatText.concat(r.data.text.replace(/<[^>]*>?/g, ''));
+					}
+				});
+				var countWords = getCountWords(concatText);
+				$scope.orderedListOfWords = getOrderedListOfWords(countWords);
+				$scope.isResolving = false;
+			}, function(err){
+				console.log(err);
+				$scope.error = err;
+			});
+		};
 
-		// Test API, to be deleted
-    var getTopStories = function () {
-    	$scope.isResolving = true;
-      $http.get('https://hacker-news.firebaseio.com/v0/topstories.json').then(function(res){
-				console.log(res.data);
-        $scope.results = res.data;
-				$scope.isResolving = false;
-      }, function(err){
-        console.log(err);
-        $scope.error = err;
-				$scope.isResolving = false;
-      });
-    };
+		// --- ASSIGNMENT 2: Top 10 most occurring words in the post of exactly the last week ---
+
+		var launchLastWeek = function(){
+			$scope.isResolving = true;
+
+			var unixTimeToday = (new Date()).getTime();
+			var unixTimePast = unixTimeToday - (7*24*60*60);
+
+
+
+			$http.get('https://hacker-news.firebaseio.com/v0/maxitem.json').then(function(res){
+				var maxItemId = parseInt(res.data);
+
+			}, function(err){
+				console.log(err);
+				$scope.error = err;
+			});
+		};
+
+
+		// --- 	VIEW  ---
 
     $scope.querySelections = [
 			{name: 'wordsStories', description: 'Top 10 most occurring words in the last 600 stories'},
@@ -74,7 +109,7 @@ angular.module('hackerNewsApp')
 		$scope.selectQuery = function (selection) {
 			switch (selection) {
 				case 'wordsStories':
-					getTopStories();
+					getMaxItem();
 					break;
 				case 'wordsWeek':
 
