@@ -33,12 +33,12 @@
 <hr>
 
 <div data-ng-show="isResolving" class="progress">
-	<div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="45"
-	     aria-valuemin="0" aria-valuemax="100" style="width: 100%">
+	<div class="progress-bar progress-bar-striped active" role="progressbar" style="width: {{progressBarPercentage}}%; min-width: 4%">
+		{{progressBarPercentage}}%
 	</div>
 </div>
 
-<div data-ng-show="!isResolving && orderedListOfWords" class="row">
+<div data-ng-show="!isResolving && orderedListOfWords.length" class="row">
 	<div class="col-xs-12">
 		<table class="table">
 			<thead>

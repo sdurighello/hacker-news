@@ -8,15 +8,29 @@
  * Controller of the hackerNewsApp
  */
 angular.module('hackerNewsApp')
-  .controller('AboutCtrl', ['$scope', '$http', '$q', '_', function ($scope, $http, $q, _) {
+  .controller('AboutCtrl', ['$scope', '$http', '$q', '$sce', '_', 'hackerApi', function ($scope, $http, $q, $sce, _, hackerApi) {
 
   	$scope.isResolving = false;
 
 		// --- Utilities ---
 
-		var getCountWords = function (text) {
+		var scrapeHtml = function(text){
+			return text.replace(/<[^>]*>?/g, '');
+		};
+
+		var createConcatTextFromFoundStories = function(storiesFound){
+			var concatText = '';
+			storiesFound.forEach(function(s){
+				if(s.text){
+					concatText = concatText.concat(scrapeHtml(s.text));
+				}
+			});
+			return concatText;
+		};
+
+		var getCountWords = function (concatText) {
 			var wordCounts = { };
-			var words = text.split(/\b/);
+			var words = concatText.split(/\b/);
 			for(var i = 0; i < words.length; i++){
 				wordCounts["_" + words[i]] = (wordCounts["_" + words[i]] || 0) + 1;
 			}
@@ -33,196 +47,272 @@ angular.module('hackerNewsApp')
 
 		// --- ASSIGNMENT 1: Top 10 most occurring words in the last 600 stories ---
 
-		// 1. get the https://hacker-news.firebaseio.com/v0/maxitem
-		// 2. Loop from max to max-600
-					// In each loop count words and accumulate them in a state
+		function assignment1(){
 
-		var createRequestBundle = function(maxItemId){
-			var requestBundle = [];
-			for(var i = maxItemId; i >= maxItemId - 600; i--){
-				requestBundle.push(
-					$http.get('https://hacker-news.firebaseio.com/v0/item/'+ i +'.json')
-				);
-			}
-			return requestBundle;
-		};
-
-		var launchLastStories = function () {
 			$scope.isResolving = true;
-			$http.get('https://hacker-news.firebaseio.com/v0/maxitem.json').then(function(res){
-				var maxItemId = parseInt(res.data);
-				var requestBundle = createRequestBundle(maxItemId);
-				getLastStoriesWordCount(requestBundle);
-			}, function(err){
-				console.log(err);
-				$scope.error = err;
-			});
-		};
+			$scope.progressBarPercentage = 0;
+			$scope.orderedListOfWords = null;
 
-		var getLastStoriesWordCount = function(requestBundle){
-			$q.all(requestBundle).then(function(res){
-				var concatText = '';
-				_.forEach(res, function(r){
-					if(r.data.text){
-						concatText = concatText.concat(r.data.text.replace(/<[^>]*>?/g, ''));
+			var maxItemId = 0;
+			var idCounter = 0;
+			var maxNumberOfStories = 5; // 600
+			var storiesFound = [
+				// { userId: ... , itemUrl: ... , text: ... , enoughKarma: false }
+			];
+
+			var processItemText = function(){
+
+				var results = [];
+				var pushResult = function (r) {
+					results.push(r);
+				};
+				var pushError = function (e) {
+					results.push(null);
+				};
+
+				var bundleRequestsArticles = _.map(storiesFound, function (s) {
+					return $http({method: 'GET', url: s.itemUrl}).then(pushResult).catch(pushError);
+				});
+				console.log(bundleRequestsArticles);
+
+				$q.all(bundleRequestsArticles).then(function(){
+					console.log(results);
+
+					_.forEach(results, function(r, i){
+						if(r){ storiesFound[i].text = r.data; }
+					});
+					console.log(storiesFound);
+
+					var concatText = createConcatTextFromFoundStories(storiesFound);
+					console.log(concatText);
+					var countWords = getCountWords(concatText);
+					$scope.orderedListOfWords = getOrderedListOfWords(countWords);
+
+					$scope.isResolving = false;
+
+				}, function(err){
+					console.log(err);
+					$scope.isResolving = false;
+				});
+			};
+
+			function recursivelyGetItem(){
+
+				hackerApi.getItemById(maxItemId - idCounter).then(function(data){
+					console.log(data);
+					if(data && (data.type === 'story') && data.url){
+						storiesFound.push({
+							userId: data.by,
+							itemUrl: data.url,
+							text: ''
+						});
+						$scope.progressBarPercentage = Math.round(((storiesFound.length || 0) / maxNumberOfStories) * 100);
+					}
+					idCounter++;
+					if(storiesFound.length < maxNumberOfStories){
+						recursivelyGetItem();
+					} else {
+						processItemText();
+					}
+				}, function(err){
+					console.log(err);
+					idCounter++;
+					if(storiesFound.length < maxNumberOfStories){
+						recursivelyGetItem();
+					} else {
+						processItemText();
 					}
 				});
-				var countWords = getCountWords(concatText);
-				$scope.orderedListOfWords = getOrderedListOfWords(countWords);
-				$scope.isResolving = false;
+			}
+
+			hackerApi.getMaxItem().then(function(data){
+
+				maxItemId = parseInt(data);
+				recursivelyGetItem();
 			}, function(err){
 				console.log(err);
-				$scope.error = err;
+				$scope.isResolving = false;
 			});
-		};
+
+		}
 
 		// --- ASSIGNMENT 2: Top 10 most occurring words in the post of exactly the last week ---
 
-		var unixTimeToday = Math.round((new Date()).getTime() / 1000);
-		var unixTimePast = unixTimeToday - (7*24*60*60);
+		var assignment2 = function(){
 
-		var counterFromMax = 0;
-		var maxItemId = null;
-
-		var concatText = '';
-
-		var launchLastWeek = function(){
 			$scope.isResolving = true;
-			$http.get('https://hacker-news.firebaseio.com/v0/maxitem.json').then(function(res){
-				maxItemId = parseInt(res.data);
+			$scope.progressBarPercentage = 100;
+			$scope.orderedListOfWords = null;
+
+			var daysAgo = 7;
+			var unixTimeToday = Math.round((new Date()).getTime() / 1000);
+			// var unixTimePast = unixTimeToday - (daysAgo*24*60*60);
+			var unixTimePast = unixTimeToday - (60);
+
+			var counterFromMax = 0;
+			var maxItemId = null;
+			var foundText = '';
+
+			var recursiveApiCall = function(){
+				// Keep checking till you reach the post, then count the words and stop the loop
+				var itemId = maxItemId - counterFromMax;
+				counterFromMax++;
+				hackerApi.getItemById(itemId).then(function(data){
+					console.log(unixTimePast);
+					console.log(data.time);
+					console.log(data.text);
+					console.log('------');
+					if(data.time === unixTimePast){
+						if(data.type === 'post'){
+							if(data.text){ foundText = data.text.replace(/<[^>]*>?/g, ''); }
+							var countWords = getCountWords(foundText);
+							$scope.orderedListOfWords = getOrderedListOfWords(countWords);
+							$scope.isResolving = false;
+						} else {
+							recursiveApiCall();
+						}
+					} else if(data.time > unixTimePast) {
+						recursiveApiCall();
+					} else {
+						$scope.isResolving = false;
+					}
+				}, function(err){
+					recursiveApiCall();
+					console.log(err);
+				});
+			};
+
+			hackerApi.getMaxItem().then(function(data){
+				maxItemId = parseInt(data);
 				recursiveApiCall()
 			}, function(err){
 				console.log(err);
-				$scope.error = err;
 			});
-		};
 
-		var recursiveApiCall = function(){
-			var storyId = maxItemId - counterFromMax;
-			$http.get('https://hacker-news.firebaseio.com/v0/item/'+ storyId +'.json').then(function(res){
-				counterFromMax++;
-				// Keep checking till you reach the post, then count the words and stop the loop
-				console.log(unixTimePast);
-				console.log(res.data.time);
-				console.log(res.data.text);
-				console.log('------');
-				if(res.data.time = unixTimePast){
-					concatText = concatText.concat(res.data.text.replace(/<[^>]*>?/g, ''));
-					var countWords = getCountWords(concatText);
-					$scope.orderedListOfWords = getOrderedListOfWords(countWords);
-					$scope.isResolving = false;
-				} else {
-					recursiveApiCall();
-				}
-			}, function(err){
-				counterFromMax++;
-				recursiveApiCall();
-				console.log(err);
-				$scope.error = err;
-			});
 		};
 
 		// --- ASSIGNMENT 3: Top 10 most occurring words in titles of the last 600 stories of users with at least 10.000 karma ---
 
-		var createRequestBundleUsers = function(storiesWithUsers){
-			var requestBundle = [];
-			for(var i = 0; i < storiesWithUsers.length; i++){
-				requestBundle.push(
-					$http.get('https://hacker-news.firebaseio.com/v0/user/'+ storiesWithUsers[i].user +'.json')
-				);
-			}
-			return requestBundle;
-		};
+		var assignment3 = function(){
 
-		var launchLastStoriesWithKarmaUsers = function () {
 			$scope.isResolving = true;
-			$http.get('https://hacker-news.firebaseio.com/v0/maxitem.json').then(function(res){
-				var maxItemId = parseInt(res.data);
-				var requestBundle = createRequestBundle(maxItemId);
-				getStories(requestBundle);
+			$scope.progressBarPercentage = 100;
+			$scope.orderedListOfWords = null;
+
+			var results = [];
+			var pushResult = function (r) {
+				results.push(r);
+			};
+			var pushError = function (e) {
+				results.push(null);
+			};
+
+			var createRequestBundleItems = function(maxItemId){
+				var requestBundle = [];
+				var numberOfItems = 10;
+				for(var i = maxItemId; i > maxItemId - numberOfItems; i--){
+					requestBundle.push(
+						$http.get('https://hacker-news.firebaseio.com/v0/item/'+ i +'.json').then(pushResult).catch(pushError)
+					);
+				}
+				return requestBundle;
+			};
+
+			var createRequestBundleUsers = function(storiesFound){
+				var requestBundle = [];
+				for(var i = 0; i < storiesFound.length; i++){
+					requestBundle.push(
+						$http.get('https://hacker-news.firebaseio.com/v0/user/'+ storiesFound[i].user +'.json').then(pushResult).catch(pushError)
+					);
+				}
+				return requestBundle;
+			};
+
+			var getStories = function(requestBundle){
+				results = [];
+				$q.all(requestBundle).then(function(){
+					var storiesWithUsers = [];
+					_.forEach(results, function(r){
+						if(r.data.text && r.data.by){
+							storiesWithUsers.push({
+								text: r.data.text,
+								user: r.data.by,
+								enoughKarma: false
+							});
+						}
+					});
+					var requestBundleUsers = createRequestBundleUsers(storiesWithUsers);
+					getWordCountWithUsers(requestBundleUsers, storiesWithUsers);
+				}, function(err){
+					console.log(err);
+					$scope.error = err;
+				});
+			};
+
+			var getWordCountWithUsers = function(requestBundleUsers, storiesWithUsers){
+				results = [];
+				$q.all(requestBundleUsers).then(function(){
+					// Update karma flag
+					_.forEach(results, function(r){
+						if(r.data.id && r.data.karma && (parseInt(r.data.karma) >= 10000)){
+							var userIndex = _.findIndex(storiesWithUsers, function(stu) { return stu.user === r.data.id });
+							storiesWithUsers[userIndex].enoughKarma = true;
+						}
+					});
+					// Concat only text belonging to karma users
+					var concatText = '';
+					_.forEach(storiesWithUsers, function(stu){
+						if(stu.enoughKarma){
+							concatText = concatText.concat(stu.text.replace(/<[^>]*>?/g, ''));
+						}
+					});
+					// Publish the count result
+					var countWords = getCountWords(concatText);
+					$scope.orderedListOfWords = getOrderedListOfWords(countWords);
+					$scope.isResolving = false;
+				}, function(err){
+					console.log(err);
+					$scope.error = err;
+				});
+			};
+
+			hackerApi.getMaxItem().then(function(data){
+				var maxItemId = parseInt(data);
+				var requestBundleItems = createRequestBundleItems(maxItemId);
+				getStories(requestBundleItems);
 			}, function(err){
 				console.log(err);
 				$scope.error = err;
 			});
-		};
 
-		var getStories = function(requestBundle){
-			$q.all(requestBundle).then(function(res){
-				var storiesWithUsers = [];
-				_.forEach(res, function(r){
-					if(r.data.text && r.data.by){
-						storiesWithUsers.push({
-							text: r.data.text,
-							user: r.data.by,
-							enoughKarma: false
-						});
-					}
-				});
-				var requestBundleUsers = createRequestBundleUsers(storiesWithUsers);
-				getWordCountWithUsers(requestBundleUsers, storiesWithUsers);
-			}, function(err){
-				console.log(err);
-				$scope.error = err;
-			});
 		};
-
-		var getWordCountWithUsers = function(requestBundleUsers, storiesWithUsers){
-			$q.all(requestBundleUsers).then(function(res2){
-				// Update karma flag
-				_.forEach(res2, function(r){
-					if(r.data.id && r.data.karma && (parseInt(r.data.karma) >= 10000)){
-						var userIndex = _.findIndex(storiesWithUsers, function(stu) { return stu.user === r.data.id })
-						storiesWithUsers[userIndex].enoughKarma = true;
-					}
-				});
-				// Concat only text belonging to karma users
-				var concatText = '';
-				_.forEach(storiesWithUsers, function(stu){
-					if(stu.enoughKarma){
-						concatText = concatText.concat(stu.text.replace(/<[^>]*>?/g, ''));
-					}
-				});
-				// Publish the count result
-				var countWords = getCountWords(concatText);
-				$scope.orderedListOfWords = getOrderedListOfWords(countWords);
-				$scope.isResolving = false;
-			}, function(err){
-				console.log(err);
-				$scope.error = err;
-			});
-		};
-
 
 		// --- 	VIEW  ---
 
     $scope.querySelections = [
-			{name: 'wordsStories', description: 'Top 10 most occurring words in the last 600 stories'},
-			{name: 'wordsWeek', description: 'Top 10 most occurring words in the post of exactly the last week'},
-			{name: 'wordsUsers', description: 'Top 10 most occurring words in titles of the last 600 stories of users with at least 10.000 karma'}
+			{name: 'assignment1', description: 'Top 10 most occurring words in the last 600 stories'},
+			{name: 'assignment2', description: 'Top 10 most occurring words in the post of exactly the last week'},
+			{name: 'assignment3', description: 'Top 10 most occurring words in titles of the last 600 stories of users with at least 10.000 karma'}
 		];
 
 		$scope.selectedQuery = null;
 		
 		$scope.selectQuery = function (selection) {
 			switch (selection) {
-				case 'wordsStories':
-					launchLastStories();
+				case 'assignment1':
+					// launchLastStories();
+					assignment1();
 					break;
-				case 'wordsWeek':
-					launchLastWeek();
+				case 'assignment2':
+					assignment2();
 					break;
-				case 'wordsUsers':
-					launchLastStoriesWithKarmaUsers();
+				case 'assignment3':
+					assignment3();
 					break;
 				default:
-					$scope.error = 'case not found';
+					console.log('case not found');
 			}
 		};
-
-
-
-
-
 
 
   }]);
