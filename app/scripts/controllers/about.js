@@ -147,7 +147,7 @@ angular.module('hackerNewsApp')
 			var daysAgo = 7;
 			var unixTimeToday = Math.round((new Date()).getTime() / 1000);
 			// var unixTimePast = unixTimeToday - (daysAgo*24*60*60);
-			var unixTimePast = unixTimeToday - (60);
+			var unixTimePast = unixTimeToday - (3*60);
 
 			var counterFromMax = 0;
 			var maxItemId = null;
@@ -199,6 +199,9 @@ angular.module('hackerNewsApp')
 			$scope.progressBarPercentage = 100;
 			$scope.orderedListOfWords = null;
 
+			var numberOfItems = 20; // 600
+			var minimumKarma = 1000; // 10000
+
 			var results = [];
 			var pushResult = function (r) {
 				results.push(r);
@@ -209,7 +212,6 @@ angular.module('hackerNewsApp')
 
 			var createRequestBundleItems = function(maxItemId){
 				var requestBundle = [];
-				var numberOfItems = 10;
 				for(var i = maxItemId; i > maxItemId - numberOfItems; i--){
 					requestBundle.push(
 						$http.get('https://hacker-news.firebaseio.com/v0/item/'+ i +'.json').then(pushResult).catch(pushError)
@@ -254,7 +256,8 @@ angular.module('hackerNewsApp')
 				$q.all(requestBundleUsers).then(function(){
 					// Update karma flag
 					_.forEach(results, function(r){
-						if(r.data.id && r.data.karma && (parseInt(r.data.karma) >= 10000)){
+						console.log('karma: ' + r.data.karma);
+						if(r.data.id && r.data.karma && (parseInt(r.data.karma) >= minimumKarma)){
 							var userIndex = _.findIndex(storiesWithUsers, function(stu) { return stu.user === r.data.id });
 							storiesWithUsers[userIndex].enoughKarma = true;
 						}
