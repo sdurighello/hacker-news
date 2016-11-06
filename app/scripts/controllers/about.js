@@ -8,25 +8,25 @@
  * Controller of the hackerNewsApp
  */
 angular.module('hackerNewsApp')
-  .controller('AboutCtrl', ['$scope', '$http', '$q', '_', function ($scope, $http, $q, _) {
+  .controller('AboutCtrl', ['$scope', '$http', '$q', '$sce', '_', 'hackerApi', function ($scope, $http, $q, $sce, _, hackerApi) {
 
   	$scope.isResolving = false;
 
-		// --- Api ---
-
-		var apiGetMaxItem = function(){
-			return $http.get('https://hacker-news.firebaseio.com/v0/maxitem.json');
-		};
-
-		var apiGetItemById = function(itemId){
-			return $http.get('https://hacker-news.firebaseio.com/v0/item/'+ itemId +'.json');
-		};
-
 		// --- Utilities ---
 
-		var getCountWords = function (text) {
+		var createConcatTextFromFoundStories = function(storiesFound){
+			var concatText = '';
+			storiesFound.forEach(function(s){
+				if(s.text){
+					concatText = concatText.concat(s.text.replace(/<[^>]*>?/g, ''));
+				}
+			});
+			return concatText;
+		};
+
+		var getCountWords = function (concatText) {
 			var wordCounts = { };
-			var words = text.split(/\b/);
+			var words = concatText.split(/\b/);
 			for(var i = 0; i < words.length; i++){
 				wordCounts["_" + words[i]] = (wordCounts["_" + words[i]] || 0) + 1;
 			}
@@ -43,9 +43,92 @@ angular.module('hackerNewsApp')
 
 		// --- ASSIGNMENT 1: Top 10 most occurring words in the last 600 stories ---
 
-		// 1. get the https://hacker-news.firebaseio.com/v0/maxitem
-		// 2. Loop from max to max-600
-					// In each loop count words and accumulate them in a state
+		function assignment1(){
+
+			$scope.isResolving = true;
+
+			var maxItemId = 0;
+			var idCounter = 0;
+			var maxNumberOfStories = 10;
+			var storiesFound = [
+				// { userId: ... , itemUrl: ... text: ...}
+			];
+
+			hackerApi.getMaxItem().then(function(data){
+
+				maxItemId = parseInt(data);
+
+				var processItemText = function(){
+
+					var results = [];
+					var pushResult = function (r) {
+						results.push(r);
+					};
+					var pushError = function (e) {
+						results.push(null);
+					};
+
+					var bundleRequestsArticles = _.map(storiesFound, function (s) {
+						return $http({method: 'GET', url: s.itemUrl}).then(pushResult).catch(pushError);
+					});
+					console.log(bundleRequestsArticles);
+					$q.all(bundleRequestsArticles).then(function(){
+						console.log(results);
+						_.forEach(results, function(r, i){
+							if(r){ storiesFound[i].text = r.data; }
+						});
+						console.log(storiesFound);
+
+						var concatText = createConcatTextFromFoundStories(storiesFound);
+						console.log(concatText);
+						var countWords = getCountWords(concatText);
+						$scope.orderedListOfWords = getOrderedListOfWords(countWords);
+						$scope.isResolving = false;
+
+					}, function(err){
+						console.log(err);
+						$scope.isResolving = false;
+					});
+				};
+
+				function recursivelyGetItem(){
+					hackerApi.getItemById(maxItemId - idCounter).then(function(data){
+						console.log(data);
+						if(data && (data.type === 'story') && data.url){
+							storiesFound.push({
+								userId: data.by,
+								itemUrl: data.url,
+								text: data.text
+							});
+							$scope.progressBarPercentage = Math.round(((storiesFound.length || 0) / maxNumberOfStories) * 100);
+						}
+						idCounter++;
+						if(storiesFound.length < maxNumberOfStories){
+							recursivelyGetItem();
+						} else {
+							processItemText();
+						}
+					}, function(err){
+						console.log(err);
+						idCounter++;
+						if(storiesFound.length < maxNumberOfStories){
+							recursivelyGetItem();
+						} else {
+							processItemText();
+						}
+					});
+				}
+
+				recursivelyGetItem();
+
+			}, function(err){
+				console.log(err);
+				$scope.isResolving = false;
+			});
+
+		}
+
+
 
 		var createRequestBundle = function(maxItemId){
 			var requestBundle = [];
@@ -216,7 +299,8 @@ angular.module('hackerNewsApp')
 		$scope.selectQuery = function (selection) {
 			switch (selection) {
 				case 'wordsStories':
-					launchLastStories();
+					// launchLastStories();
+					assignment1();
 					break;
 				case 'wordsWeek':
 					launchLastWeek();

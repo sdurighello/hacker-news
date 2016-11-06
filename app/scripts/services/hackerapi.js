@@ -13,7 +13,7 @@ angular.module('hackerNewsApp')
     function getItemById(itemId) {
       var deferred = $q.defer();
       $http.get('https://hacker-news.firebaseio.com/v0/item/'+ itemId +'.json').success(function(res) {
-        deferred.resolve(res.data);
+        deferred.resolve(res);
       }).error(function(err) {
         deferred.reject(err);
         $log.error(err);
@@ -24,7 +24,7 @@ angular.module('hackerNewsApp')
     function getMaxItem() {
       var deferred = $q.defer();
       $http.get('https://hacker-news.firebaseio.com/v0/maxitem.json').success(function(res) {
-        deferred.resolve(res.data);
+        deferred.resolve(res);
       }).error(function(err) {
         deferred.reject(err);
         $log.error(err);
