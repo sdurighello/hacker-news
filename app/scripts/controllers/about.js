@@ -12,6 +12,16 @@ angular.module('hackerNewsApp')
 
   	$scope.isResolving = false;
 
+		// --- Api ---
+
+		var apiGetMaxItem = function(){
+			return $http.get('https://hacker-news.firebaseio.com/v0/maxitem.json');
+		};
+
+		var apiGetItemById = function(itemId){
+			return $http.get('https://hacker-news.firebaseio.com/v0/item/'+ itemId +'.json');
+		};
+
 		// --- Utilities ---
 
 		var getCountWords = function (text) {
