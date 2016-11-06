@@ -1,4 +1,3 @@
-App running at [stark-shelf-42231.herokuapp.com](https://stark-shelf-42231.herokuapp.com)
 
 In this assignment we’ll be asking you to build a small angular app that talks to a public api of HackerNews. 
 (documentation on [HackerNews GitHub](https://github.com/HackerNews/API) )
